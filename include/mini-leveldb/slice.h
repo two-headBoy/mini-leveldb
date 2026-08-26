@@ -45,6 +45,10 @@ public:
         return !(*this == other);
     }
 
+    bool operator<(const Slice& other) const {
+        return compare(other) < 0;
+    }
+
 private:
     std::string_view view_;
 

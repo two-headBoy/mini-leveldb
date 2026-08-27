@@ -79,6 +79,26 @@ public:
             && !compare_(key, x->key);
     }
 
+private:
+    // 常量与节点需先于 Iterator 定义（字段声明处要求名字可见）
+    static constexpr int kMaxHeight  = 12;  // 最大层数，覆盖 ~4^12 = 16M 节点
+    static constexpr int kBranching   = 4;  // 每层 1/4 概率上升
+
+    struct Node {
+        Key key;
+        std::atomic<Node*> next_[kMaxHeight];
+
+        explicit Node(const Key& k) : key(k) {
+            for (int i = 0; i < kMaxHeight; i++) {
+                next_[i].store(nullptr, std::memory_order_relaxed);
+            }
+        }
+        Node* Next(int n) const {
+            return next_[n].load(std::memory_order_acquire);
+        }
+    };
+
+public:
     // 迭代器
     class Iterator
     {
@@ -105,23 +125,6 @@ public:
     };
 
 private:
-    static constexpr int kMaxHeight  = 12;  // 最大层数，覆盖 ~4^12 = 16M 节点
-    static constexpr int kBranching   = 4;  // 每层 1/4 概率上升
-
-    struct Node {
-        Key key;
-        std::atomic<Node*> next_[kMaxHeight];
-
-        explicit Node(const Key& k) : key(k) {
-            for (int i = 0; i < kMaxHeight; i++) {
-                next_[i].store(nullptr, std::memory_order_relaxed);
-            }
-        }
-        Node* Next(int n) const {
-            return next_[n].load(std::memory_order_acquire);
-        }
-    };
-
     Arena* arena_;                  // 内存池，分配节点
     Comparator compare_;            // 比较器（具体类，非虚）
     Node* head_;                    // 哑头节点，占 kMaxHeight 层

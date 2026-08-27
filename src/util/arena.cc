@@ -56,6 +56,7 @@ char* Arena::AllocateAligned(size_t bytes) {
 char* Arena::AllocateNewBlock(size_t block_bytes) {
     char* result = new char[block_bytes];
     blocks_.push_back(result);
+    blocks_bytes_ += block_bytes;
     return result;
 }
 

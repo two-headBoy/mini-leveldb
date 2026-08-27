@@ -84,6 +84,7 @@ LogReader::ReadResult LogReader::ReadPhysicalRecord(RecordType* type, Slice* fra
         }
 
         pos_ += kHeaderSize + len;
+        valid_end_ = base_ + pos_;
         *type = static_cast<RecordType>(t);
         *frag = Slice(h + kHeaderSize, len);
         return ReadResult::kOk;
@@ -94,6 +95,7 @@ bool LogReader::Refill() {
     if (eof_) {
         return false;
     }
+    base_ += limit_;   // 上一块（含块尾填充）全部消费掉
     limit_ = std::fread(buffer_, 1, kBlockSize, file_);
     pos_ = 0;
     if (limit_ < static_cast<size_t>(kBlockSize)) {

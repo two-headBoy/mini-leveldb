@@ -18,6 +18,9 @@ public:
     // 取下一条逻辑记录；没有更多返回 false（残缺尾巴就地丢弃）
     bool ReadRecord(Slice* record);
 
+    // 最后一条完好物理记录的结束字节偏移；恢复后截断残尾用
+    uint64_t valid_end() const { return valid_end_; }
+
 private:
     enum class ReadResult { kOk, kBad, kEof };
 
@@ -26,10 +29,12 @@ private:
 
     std::FILE* file_;
     char buffer_[kBlockSize];
-    size_t pos_ = 0;     // 块内读位置
-    size_t limit_ = 0;   // 有效数据尾
+    uint64_t base_ = 0;       // buffer_[0] 对应的文件偏移
+    size_t pos_ = 0;          // 块内读位置
+    size_t limit_ = 0;        // 有效数据尾
     bool eof_ = false;
-    std::string res_;    // 分片拼接缓冲
+    uint64_t valid_end_ = 0;  // 最后一条完好记录的终点
+    std::string res_;         // 分片拼接缓冲
 
 };
 

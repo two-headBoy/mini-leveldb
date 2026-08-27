@@ -12,6 +12,7 @@ class Slice {
 public:
     Slice() = default;
     Slice(const char* d, size_t n) : view_(d, n) {}
+    Slice(const char* s) : view_(s) {}
     Slice(const std::string& s) : view_(s) {}
     Slice(std::string_view v) : view_(v) {}
 

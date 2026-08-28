@@ -39,7 +39,17 @@ public:
     Status Iterate(Handler* handler) const;
 
 private:
-    std::string rep_;   // 布局: [8B seq][4B count][record...]
+    // rep_ 字节布局（自描述，WAL 原样落盘）:
+    // ┌────────────┬───────────┬──────────────────────────────────────┐
+    // │ [8B seq]   │ [4B count]│            记录区（变长）             │
+    // └────────────┴───────────┴──────────────────────────────────────┘
+    //  └──── kHeader = 12 ────┘
+    // 每条记录:
+    //   Put    = [1B kTypeValue][varint klen][key][varint vlen][value]
+    //   Delete = [1B kTypeDeletion][varint klen][key]
+    // seq 是整批的起始版本号，回放时逐条 seq++ 传给 handler
+    // count 是记录条数，恢复时用来校验是否被截断
+    std::string rep_;
     static constexpr size_t kHeader = 12;   // 头部长度
 
 };

@@ -15,6 +15,10 @@ file(GLOB_RECURSE LIB_SOURCES CONFIGURE_DEPENDS
 )
 add_library(mini_leveldb STATIC ${LIB_SOURCES})
 
+# gtest
+find_package(GTest REQUIRED)
+find_package(Threads REQUIRED)
+
 # tests/ 下每个 *_test.cc 单独编译链接，生成同名可执行文件
 file(GLOB TEST_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
@@ -22,5 +26,10 @@ file(GLOB TEST_SOURCES CONFIGURE_DEPENDS
 foreach(test_src ${TEST_SOURCES})
     get_filename_component(test_name ${test_src} NAME_WE)
     add_executable(${test_name} ${test_src})
-    target_link_libraries(${test_name} PRIVATE mini_leveldb)
+    target_link_libraries(${test_name} PRIVATE
+        mini_leveldb
+        GTest::gtest
+        GTest::gtest_main
+        Threads::Threads
+    )
 endforeach()

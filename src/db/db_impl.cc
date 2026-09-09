@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "db/dbformat.h"
+#include "db/filename.h"
 #include "db/log_reader.h"
 #include "mini-leveldb/write_batch.h"
 
@@ -56,6 +57,22 @@ Status DB::Open(const std::string& name, DB** dbptr) {
 
 Status DBImpl::Init() {
     ::mkdir(dbname_.c_str(), 0755);   // 已存在则忽略
+
+    // 扫目录：定编号基线（max+1），顺带清理孤儿 .tmp（刷盘中途崩溃的残留）
+    std::vector<FileInfo> files;
+    if (!ListFiles(dbname_, &files).ok()) {
+        return Status::IOError("scan dir failed: " + dbname_);
+    }
+    for (const auto& f : files) {
+        if (f.number >= next_file_number_) {
+            next_file_number_ = f.number + 1;
+        }
+        if (f.type == FileType::kTempFile) {
+            if (std::remove(TempFileName(dbname_, f.number).c_str()) != 0) {
+                return Status::IOError("remove orphan tmp failed");
+            }
+        }
+    }
 
     log_file_ = std::fopen(log_path_.c_str(), "a+b");
     if (log_file_ == nullptr) {

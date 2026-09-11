@@ -18,22 +18,24 @@ void MemTable::Add(SequenceNumber seq, ValueType type,
     table_.Insert(Key{Slice(buf, klen), Slice(buf + klen, value.size())});
 }
 
-bool MemTable::Get(const Slice& user_key, std::string* value) const {
+LookupState MemTable::Get(const Slice& user_key, std::string* value) const {
     // tag 取最大值的哨兵键：同 user_key 按 tag 降序，Seek 恰停在其最新版本
     std::string lookup;
     AppendInternalKey(&lookup, user_key, kMaxSequenceNumber, kTypeValue);
     Table::Iterator it(&table_);
     it.Seek(Key{Slice(lookup), Slice()});
 
-    if (!it.Valid()) return false;
+    if (!it.Valid()) return LookupState::kNotFound;
     const Key& entry = it.key();
-    if (ExtractUserKey(entry.ikey) != user_key) return false;  // 落到了下一个 key
+    if (ExtractUserKey(entry.ikey) != user_key) {
+        return LookupState::kNotFound;   // 落到了下一个 key
+    }
 
     if (static_cast<ValueType>(ExtractTag(entry.ikey) & 0xff) == kTypeValue) {
         value->assign(entry.value.data(), entry.value.size());
-        return true;
+        return LookupState::kValue;
     }
-    return false;   // kTypeDeletion：tombstone 视为未命中
+    return LookupState::kDeleted;   // 墓碑必须上报，多层 Get 靠它终止下探
 }
 
 size_t MemTable::ApproximateMemoryUsage() const {

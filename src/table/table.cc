@@ -65,19 +65,19 @@ Status Table::Open(const std::string& fname, Table** table) {
     return Status::OK();
 }
 
-bool Table::Get(const Slice& user_key, std::string* value) {
+LookupState Table::Get(const Slice& user_key, std::string* value) {
     // 第一层：索引块二分，定位 data block
     auto index_it = index_block_.NewIterator();
     index_it.Seek(user_key);
     if (!index_it.Valid()) {
-        return false;   // target 比所有块的 max key 都大
+        return LookupState::kNotFound;   // target 比所有块的 max key 都大
     }
 
     // 解码索引条目的 value（BlockHandle 编码）
     Slice handle_encoded = index_it.value();
     BlockHandle data_handle;
     if (!data_handle.DecodeFrom(&handle_encoded).ok()) {
-        return false;
+        return LookupState::kNotFound;
     }
 
     // 读 data block
@@ -85,7 +85,7 @@ bool Table::Get(const Slice& user_key, std::string* value) {
     Slice data_block_contents;
     Status s = ReadBlock(file_, data_handle, &data_scratch, &data_block_contents);
     if (!s.ok()) {
-        return false;
+        return LookupState::kNotFound;
     }
 
     // 第二层：data block 二分查 target
@@ -93,24 +93,23 @@ bool Table::Get(const Slice& user_key, std::string* value) {
     auto data_it = data_block.NewIterator();
     data_it.Seek(user_key);
     if (!data_it.Valid()) {
-        return false;
+        return LookupState::kNotFound;
     }
 
     // 校验 user_key 命中，排除"落到下一个 key"的情况
     Slice ikey = data_it.key();
     if (ExtractUserKey(ikey) != user_key) {
-        return false;
+        return LookupState::kNotFound;
     }
 
-    // tombstone 视为未命中
     const ValueType type =
         static_cast<ValueType>(ExtractTag(ikey) & 0xff);
     if (type != kTypeValue) {
-        return false;
+        return LookupState::kDeleted;   // 本表最新版本是墓碑，必须上报
     }
 
     value->assign(data_it.value().data(), data_it.value().size());
-    return true;
+    return LookupState::kValue;
 }
 
 }   // namespace mini_leveldb

@@ -16,6 +16,10 @@ enum ValueType : uint8_t {
 using SequenceNumber = uint64_t;
 inline constexpr uint64_t kMaxSequenceNumber = (1ull << 56) - 1;
 
+// Get 的三态结果：本层没有 / 有值 / 墓碑
+// 多层查找时墓碑必须终止下探，否则会读出更旧文件里的已删数据
+enum class LookupState { kNotFound, kValue, kDeleted };
+
 struct ParsedInternalKey {
     Slice user_key;
     SequenceNumber sequence;

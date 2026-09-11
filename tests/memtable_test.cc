@@ -13,7 +13,7 @@ TEST(MemTableTest, BasicAddGet) {
     mem.Add(1, kTypeValue, "alice", "100");
 
     std::string value;
-    EXPECT_TRUE(mem.Get("alice", &value));
+    EXPECT_EQ(mem.Get("alice", &value), LookupState::kValue);
     EXPECT_EQ(value, "100");
 }
 
@@ -25,13 +25,13 @@ TEST(MemTableTest, MultipleKeys) {
     mem.Add(3, kTypeValue, "c", "3");
 
     std::string value;
-    ASSERT_TRUE(mem.Get("a", &value));
+    ASSERT_EQ(mem.Get("a", &value), LookupState::kValue);
     EXPECT_EQ(value, "1");
-    ASSERT_TRUE(mem.Get("b", &value));
+    ASSERT_EQ(mem.Get("b", &value), LookupState::kValue);
     EXPECT_EQ(value, "2");
-    ASSERT_TRUE(mem.Get("c", &value));
+    ASSERT_EQ(mem.Get("c", &value), LookupState::kValue);
     EXPECT_EQ(value, "3");
-    EXPECT_FALSE(mem.Get("d", &value));
+    EXPECT_EQ(mem.Get("d", &value), LookupState::kNotFound);
 }
 
 // 同 key 高 seq 覆盖低 seq
@@ -42,7 +42,7 @@ TEST(MemTableTest, OverwriteHigherSeqWins) {
     mem.Add(3, kTypeValue, "key", "newer");
 
     std::string value;
-    ASSERT_TRUE(mem.Get("key", &value));
+    ASSERT_EQ(mem.Get("key", &value), LookupState::kValue);
     EXPECT_EQ(value, "newer");
 }
 
@@ -53,18 +53,18 @@ TEST(MemTableTest, LowerSeqDoesNotOverride) {
     mem.Add(3, kTypeValue, "key", "low");
 
     std::string value;
-    ASSERT_TRUE(mem.Get("key", &value));
+    ASSERT_EQ(mem.Get("key", &value), LookupState::kValue);
     EXPECT_EQ(value, "high");
 }
 
-// tombstone 表现为未命中
-TEST(MemTableTest, TombstoneReturnsNotFound) {
+// tombstone 上报 kDeleted（不再伪装成未命中）
+TEST(MemTableTest, TombstoneReturnsDeleted) {
     MemTable mem;
     mem.Add(1, kTypeValue, "key", "value");
     mem.Add(2, kTypeDeletion, "key", Slice());
 
     std::string value;
-    EXPECT_FALSE(mem.Get("key", &value));
+    EXPECT_EQ(mem.Get("key", &value), LookupState::kDeleted);
 }
 
 // tombstone 不影响其他 key
@@ -74,9 +74,9 @@ TEST(MemTableTest, TombstoneOnlyAffectsSameKey) {
     mem.Add(2, kTypeDeletion, "bob", Slice());
 
     std::string value;
-    ASSERT_TRUE(mem.Get("alice", &value));
+    ASSERT_EQ(mem.Get("alice", &value), LookupState::kValue);
     EXPECT_EQ(value, "100");
-    EXPECT_FALSE(mem.Get("bob", &value));
+    EXPECT_EQ(mem.Get("bob", &value), LookupState::kDeleted);
 }
 
 // 空 value 边界
@@ -85,7 +85,7 @@ TEST(MemTableTest, EmptyValue) {
     mem.Add(1, kTypeValue, "key", Slice());
 
     std::string value = "stale";
-    ASSERT_TRUE(mem.Get("key", &value));
+    ASSERT_EQ(mem.Get("key", &value), LookupState::kValue);
     EXPECT_TRUE(value.empty());
 }
 
@@ -95,7 +95,7 @@ TEST(MemTableTest, EmptyKey) {
     mem.Add(1, kTypeValue, Slice(), "value");
 
     std::string value;
-    ASSERT_TRUE(mem.Get(Slice(), &value));
+    ASSERT_EQ(mem.Get(Slice(), &value), LookupState::kValue);
     EXPECT_EQ(value, "value");
 }
 
@@ -130,7 +130,7 @@ TEST(MemTableTest, BatchWriteAndRandomRead) {
         char k[32], expected[64];
         std::snprintf(k, sizeof(k), "user_key_%04d", i);
         std::snprintf(expected, sizeof(expected), "user_value_%04d_padding", i);
-        ASSERT_TRUE(mem.Get(k, &value));
+        ASSERT_EQ(mem.Get(k, &value), LookupState::kValue);
         EXPECT_EQ(value, expected);
     }
 }
@@ -143,7 +143,7 @@ TEST(MemTableTest, TombstoneThenHigherSeqPutVisible) {
     mem.Add(3, kTypeValue, "key", "new");         // 重新写入，seq 更大
 
     std::string value;
-    ASSERT_TRUE(mem.Get("key", &value));
+    ASSERT_EQ(mem.Get("key", &value), LookupState::kValue);
     EXPECT_EQ(value, "new");
 }
 
@@ -155,8 +155,8 @@ TEST(MemTableTest, TombstoneThenLowerSeqPutInvisible) {
     mem.Add(4, kTypeValue, "key", "stale");       // 旧版本写入，seq 更低
 
     std::string value;
-    // seq=5 的 tombstone 仍最新，应不可见
-    EXPECT_FALSE(mem.Get("key", &value));
+    // seq=5 的 tombstone 仍最新，应上报 kDeleted
+    EXPECT_EQ(mem.Get("key", &value), LookupState::kDeleted);
 }
 
 // 中间版本被跳过：只看到最新和最旧，中间版本不影响
@@ -169,6 +169,44 @@ TEST(MemTableTest, IntermediateVersionsDoNotAffectGet) {
     mem.Add(5, kTypeValue, "key", "final");
 
     std::string value;
-    ASSERT_TRUE(mem.Get("key", &value));
+    ASSERT_EQ(mem.Get("key", &value), LookupState::kValue);
     EXPECT_EQ(value, "final");
+}
+
+// B1 验收：顺序遍历，user 升序、同 user 高 seq 在前，墓碑条目照常出现
+TEST(MemTableTest, SequentialIterationForFlush) {
+    MemTable mem;
+    mem.Add(1, kTypeValue, "a", "va");
+    mem.Add(3, kTypeValue, "b", "v3");
+    mem.Add(2, kTypeDeletion, "b", Slice());
+    mem.Add(2, kTypeValue, "c", "vc");
+
+    struct Expected {
+        const char* user;
+        uint64_t seq;
+        ValueType type;
+        const char* value;
+    };
+    const Expected exp[] = {
+        {"a", 1, kTypeValue, "va"},
+        {"b", 3, kTypeValue, "v3"},     // 同 user 高 seq 在前
+        {"b", 2, kTypeDeletion, nullptr},
+        {"c", 2, kTypeValue, "vc"},
+    };
+
+    auto it = mem.NewIterator();
+    it.SeekToFirst();
+    for (const auto& e : exp) {
+        ASSERT_TRUE(it.Valid());
+        ParsedInternalKey parsed;
+        ASSERT_TRUE(ParseInternalKey(it.ikey(), &parsed));
+        EXPECT_EQ(parsed.user_key.ToString(), e.user);
+        EXPECT_EQ(parsed.sequence, e.seq);
+        EXPECT_EQ(parsed.type, e.type);
+        if (e.value != nullptr) {
+            EXPECT_EQ(it.value().ToString(), e.value);
+        }
+        it.Next();
+    }
+    EXPECT_FALSE(it.Valid());
 }

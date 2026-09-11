@@ -68,15 +68,15 @@ TEST(TableTest, SmallRoundTrip) {
     ASSERT_NE(table, nullptr);
 
     std::string value;
-    EXPECT_TRUE(table->Get("alice", &value));
+    EXPECT_EQ(table->Get("alice", &value), LookupState::kValue);
     EXPECT_EQ(value, "100");
-    EXPECT_TRUE(table->Get("charlie", &value));
+    EXPECT_EQ(table->Get("charlie", &value), LookupState::kValue);
     EXPECT_EQ(value, "300");
 
     // 未命中：不存在的 key、比所有 key 小、比所有 key 大
-    EXPECT_FALSE(table->Get("dave", &value));
-    EXPECT_FALSE(table->Get("aaa", &value));
-    EXPECT_FALSE(table->Get("zzz", &value));
+    EXPECT_EQ(table->Get("dave", &value), LookupState::kNotFound);
+    EXPECT_EQ(table->Get("aaa", &value), LookupState::kNotFound);
+    EXPECT_EQ(table->Get("zzz", &value), LookupState::kNotFound);
 
     delete table;
     std::remove(path.c_str());
@@ -103,12 +103,12 @@ TEST(TableTest, LargeRoundTrip100K) {
         char k[32], v[32];
         std::snprintf(k, sizeof(k), "key%06d", i);
         std::snprintf(v, sizeof(v), "val%06d", i);
-        ASSERT_TRUE(table->Get(k, &value)) << "missing: " << k;
+        ASSERT_EQ(table->Get(k, &value), LookupState::kValue) << "missing: " << k;
         EXPECT_EQ(value, v);
     }
     // 边界外未命中
-    EXPECT_FALSE(table->Get("key100000", &value));
-    EXPECT_FALSE(table->Get("key00000A", &value));
+    EXPECT_EQ(table->Get("key100000", &value), LookupState::kNotFound);
+    EXPECT_EQ(table->Get("key00000A", &value), LookupState::kNotFound);
 
     delete table;
     std::remove(path.c_str());
@@ -124,16 +124,16 @@ TEST(TableTest, LargeValue) {
     ASSERT_TRUE(Table::Open(path, &table).ok());
 
     std::string value;
-    EXPECT_TRUE(table->Get("big", &value));
+    EXPECT_EQ(table->Get("big", &value), LookupState::kValue);
     EXPECT_EQ(value, big);
-    EXPECT_TRUE(table->Get("small", &value));
+    EXPECT_EQ(table->Get("small", &value), LookupState::kValue);
     EXPECT_EQ(value, "s");
 
     delete table;
     std::remove(path.c_str());
 }
 
-// tombstone：同 user key 新版本是删除标记，Get 视为未命中
+// tombstone：同 user key 新版本是删除标记，上报 kDeleted 而非 kNotFound
 TEST(TableTest, TombstoneHidesValue) {
     // 顺序：高 seq 在前（删除），低 seq 在后（旧值）
     std::string path = BuildTable({
@@ -145,7 +145,8 @@ TEST(TableTest, TombstoneHidesValue) {
     ASSERT_TRUE(Table::Open(path, &table).ok());
 
     std::string value;
-    EXPECT_FALSE(table->Get("k", &value));
+    EXPECT_EQ(table->Get("k", &value), LookupState::kDeleted);
+    EXPECT_EQ(table->Get("nokey", &value), LookupState::kNotFound);
 
     delete table;
     std::remove(path.c_str());
@@ -162,8 +163,29 @@ TEST(TableTest, MultipleVersionsReturnNewest) {
     ASSERT_TRUE(Table::Open(path, &table).ok());
 
     std::string value;
-    EXPECT_TRUE(table->Get("k", &value));
+    EXPECT_EQ(table->Get("k", &value), LookupState::kValue);
     EXPECT_EQ(value, "new");
+
+    delete table;
+    std::remove(path.c_str());
+}
+
+// B2 验收：单文件内三态完整区分——最新版是值 / 是墓碑 / 没有
+TEST(TableTest, LookupStateThreeWay) {
+    std::string path = BuildTable({
+        {"gone", 10, kTypeDeletion, ""},
+        {"gone", 5,  kTypeValue, "old"},   // 被 seq10 墓碑遮蔽
+        {"hit",  20, kTypeValue, "v"},
+    });
+
+    Table* table = nullptr;
+    ASSERT_TRUE(Table::Open(path, &table).ok());
+
+    std::string value;
+    EXPECT_EQ(table->Get("hit", &value), LookupState::kValue);
+    EXPECT_EQ(value, "v");
+    EXPECT_EQ(table->Get("gone", &value), LookupState::kDeleted);
+    EXPECT_EQ(table->Get("none", &value), LookupState::kNotFound);
 
     delete table;
     std::remove(path.c_str());
@@ -226,7 +248,7 @@ TEST(TableTest, EmptyTable) {
     ASSERT_TRUE(Table::Open(path, &table).ok());
 
     std::string value;
-    EXPECT_FALSE(table->Get("anything", &value));
+    EXPECT_EQ(table->Get("anything", &value), LookupState::kNotFound);
 
     delete table;
     std::remove(path.c_str());

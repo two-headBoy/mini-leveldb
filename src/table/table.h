@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <string>
 
+#include "db/dbformat.h"
 #include "mini-leveldb/slice.h"
 #include "mini-leveldb/status.h"
 #include "table/block.h"
@@ -25,9 +26,10 @@ public:
     Table(const Table&) = delete;
     Table& operator=(const Table&) = delete;
 
-    // 查找 user_key 对应的最新 value
-    // 命中返回 true 并填充 value；未命中返回 false
-    bool Get(const Slice& user_key, std::string* value);
+    // 查找 user_key 的最新版本，三态上报：
+    // kValue 填充 value；kDeleted = 本表最新版本是墓碑（多层 Get 靠它终止下探）；
+    // kNotFound = 本表没有该 key
+    LookupState Get(const Slice& user_key, std::string* value);
 
 private:
     // index_data 已从文件读出，Table 内部拷贝一份供 Block 长期引用

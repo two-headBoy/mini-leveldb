@@ -14,7 +14,7 @@ public:
 
     void Add(SequenceNumber seq, ValueType type,
              const Slice& key, const Slice& value);
-    bool Get(const Slice& user_key, std::string* value) const;
+    LookupState Get(const Slice& user_key, std::string* value) const;
     size_t ApproximateMemoryUsage() const;
 
 private:
@@ -30,6 +30,24 @@ private:
 
     using Table = SkipList<Key, Cmp>;
 
+public:
+    // flush 用：顺序遍历，ikey 全局递增（user 升序、同 user 高 seq 在前），
+    // 正是 TableBuilder 要求的输入序；墓碑条目也会出现，必须一起刷进 SSTable
+    class Iterator {
+    public:
+        explicit Iterator(const MemTable* mem) : it_(&mem->table_) {}
+        bool Valid() const { return it_.Valid(); }
+        Slice ikey() const { return it_.key().ikey; }
+        Slice value() const { return it_.key().value; }
+        void Next() { it_.Next(); }
+        void SeekToFirst() { it_.SeekToFirst(); }
+
+    private:
+        Table::Iterator it_;   // 依赖上方 using Table，声明顺序不能倒
+    };
+    Iterator NewIterator() const { return Iterator(this); }
+
+private:
     Arena arena_;
     Table table_;
 };

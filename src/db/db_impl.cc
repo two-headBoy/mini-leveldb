@@ -159,8 +159,8 @@ Status DBImpl::Delete(const Slice& key) {
 
 Status DBImpl::Get(const Slice& key, std::string* value) {
     std::lock_guard<std::mutex> lock(mutex_);
-    // MemTable 内部用 kMaxSeq 哨兵，天然返回最新版本；tombstone 表现为未命中
-    if (mem_->Get(key, value)) {
+    // 单层语义：kValue→OK；kDeleted/kNotFound→NotFound（多层下探是 B5 的事）
+    if (mem_->Get(key, value) == LookupState::kValue) {
         return Status::OK();
     }
     return Status::NotFound(key);

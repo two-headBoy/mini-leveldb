@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "db/log_writer.h"
 #include "db/memtable.h"
@@ -14,6 +15,7 @@ namespace mini_leveldb
 {
 
 class WriteBatch;
+class Table;
 class DBTest;
 
 class DBImpl : public DB {
@@ -41,6 +43,7 @@ private:
     std::FILE* log_file_ = nullptr;
     std::unique_ptr<LogWriter> log_;
     std::unique_ptr<MemTable> mem_;
+    std::vector<std::unique_ptr<Table>> tables_;    // 已刷盘 SSTable，编号降序（头=最新），即 Get 下探序；Open 时一次性常驻
     uint64_t last_seq_ = 0;
     uint64_t next_file_number_ = 1;   // log/ldb 共用单调编号
     std::mutex mutex_;

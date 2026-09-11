@@ -7,6 +7,7 @@
 #include "db/filename.h"
 #include "db/log_reader.h"
 #include "mini-leveldb/write_batch.h"
+#include "table/table.h"
 #include "table/table_builder.h"
 
 namespace mini_leveldb
@@ -218,6 +219,14 @@ Status DBImpl::FlushMemTable() {
         return Status::IOError("rename tmp table failed: " + tmp_name);
     }
 
+    // 常驻打开，插头部：编号单调递增，tables_ 始终降序 = Get 下探序
+    Table* table = nullptr;
+    Status os = Table::Open(table_name, &table);
+    if (!os.ok()) {
+        return os;   // 文件已落盘，保留旧 WAL；重启按 .ldb + WAL 幂等恢复
+    }
+    tables_.insert(tables_.begin(), std::unique_ptr<Table>(table));
+
     // 3. 关闭并删除旧 WAL（数据已在表中）。fclose 无论成败流都已失效，先摘指针
     const std::string old_log_name = LogFileName(dbname_, log_number_);
     std::fflush(log_file_);
@@ -257,9 +266,22 @@ Status DBImpl::Delete(const Slice& key) {
 
 Status DBImpl::Get(const Slice& key, std::string* value) {
     std::lock_guard<std::mutex> lock(mutex_);
-    // 单层语义：kValue→OK；kDeleted/kNotFound→NotFound（多层下探是 B5 的事）
-    if (mem_->Get(key, value) == LookupState::kValue) {
+    // 从新到旧逐层下探：kValue→返回；kDeleted→墓碑截断；kNotFound→继续
+    LookupState state = mem_->Get(key, value);
+    if (state == LookupState::kValue) {
         return Status::OK();
+    }
+    if (state == LookupState::kDeleted) {
+        return Status::NotFound(key);
+    }
+    for (const auto& t : tables_) {
+        state = t->Get(key, value);
+        if (state == LookupState::kValue) {
+            return Status::OK();
+        }
+        if (state == LookupState::kDeleted) {
+            return Status::NotFound(key);
+        }
     }
     return Status::NotFound(key);
 }

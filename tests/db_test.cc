@@ -22,6 +22,7 @@ public:
     Status Init() { return impl_->Init(); }
 
     Status Put(const Slice& k, const Slice& v) { return impl_->Put(k, v); }
+    Status Delete(const Slice& k) { return impl_->Delete(k); }
     Status Get(const Slice& k, std::string* v) { return impl_->Get(k, v); }
     Status Flush() { return impl_->FlushMemTable(); }
 
@@ -143,6 +144,79 @@ TEST(DBTest, AutoFlushWhenMemTableFull) {
         std::string v;
         ASSERT_TRUE(db.Get("tail", &v).ok());
         EXPECT_EQ(v, "tv");
+    }
+    RemoveDir(dir);
+}
+
+// flush 后 mem 已空，Get 必须从刚刷出的 .ldb 读回（B4 遗留断言）
+TEST(DBTest, ReadBackAfterFlush) {
+    const std::string dir = MakeTempDir();
+    ASSERT_FALSE(dir.empty());
+    {
+        DBTest db(dir);
+        ASSERT_TRUE(db.Init().ok());
+        ASSERT_TRUE(db.Put("a", "1").ok());
+        ASSERT_TRUE(db.Put("b", "2").ok());
+        ASSERT_TRUE(db.Flush().ok());
+
+        std::string v;
+        ASSERT_TRUE(db.Get("a", &v).ok());
+        EXPECT_EQ(v, "1");
+        ASSERT_TRUE(db.Get("b", &v).ok());
+        EXPECT_EQ(v, "2");
+    }
+    RemoveDir(dir);
+}
+
+// 场景③：同 key 跨 mem/多个 .ldb 更新，Get 恒返回最新版本
+TEST(DBTest, NewestValueAcrossLayers) {
+    const std::string dir = MakeTempDir();
+    ASSERT_FALSE(dir.empty());
+    {
+        DBTest db(dir);
+        ASSERT_TRUE(db.Init().ok());
+
+        ASSERT_TRUE(db.Put("k", "v1").ok());
+        ASSERT_TRUE(db.Flush().ok());          // v1 进第 1 张表
+        ASSERT_TRUE(db.Put("k", "v2").ok());   // v2 留 mem
+        std::string v;
+        ASSERT_TRUE(db.Get("k", &v).ok());
+        EXPECT_EQ(v, "v2");
+
+        ASSERT_TRUE(db.Flush().ok());          // v2 进第 2 张表（编号更大）
+        ASSERT_TRUE(db.Put("k", "v3").ok());   // v3 留 mem
+        ASSERT_TRUE(db.Get("k", &v).ok());
+        EXPECT_EQ(v, "v3");
+
+        ASSERT_TRUE(db.Flush().ok());          // mem 清空，v3 只在最新表
+        ASSERT_TRUE(db.Get("k", &v).ok());
+        EXPECT_EQ(v, "v3");
+    }
+    RemoveDir(dir);
+}
+
+// 场景④：旧表有值，新层是墓碑，Get 必须 NotFound 而不是读回旧值
+TEST(DBTest, TombstoneShieldsOlderTable) {
+    const std::string dir = MakeTempDir();
+    ASSERT_FALSE(dir.empty());
+    {
+        DBTest db(dir);
+        ASSERT_TRUE(db.Init().ok());
+
+        ASSERT_TRUE(db.Put("x", "secret").ok());
+        ASSERT_TRUE(db.Put("keep", "alive").ok());
+        ASSERT_TRUE(db.Flush().ok());          // 旧表：x=secret, keep=alive
+
+        ASSERT_TRUE(db.Delete("x").ok());      // 墓碑在 mem
+        std::string v;
+        EXPECT_TRUE(db.Get("x", &v).IsNotFound());
+        ASSERT_TRUE(db.Get("keep", &v).ok());  // 不误伤其他 key
+        EXPECT_EQ(v, "alive");
+
+        ASSERT_TRUE(db.Flush().ok());          // 墓碑刷进新 .ldb
+        EXPECT_TRUE(db.Get("x", &v).IsNotFound());
+        ASSERT_TRUE(db.Get("keep", &v).ok());
+        EXPECT_EQ(v, "alive");
     }
     RemoveDir(dir);
 }

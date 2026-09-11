@@ -106,6 +106,47 @@ TEST(DBTest, FlushRotatesLogAndLeavesTable) {
     RemoveDir(dir);
 }
 
+// 场景②：写超 4MB 阈值，Put 路径自动同步 flush 出 .ldb
+// 注：flush 后旧数据读回（.ldb 挂载）是 B5/B6 的断言，此处只验证自动触发与目录形态
+TEST(DBTest, AutoFlushWhenMemTableFull) {
+    const std::string dir = MakeTempDir();
+    ASSERT_FALSE(dir.empty());
+    {
+        DBTest db(dir);
+        ASSERT_TRUE(db.Init().ok());
+
+        const std::string big(1024, 'x');
+        int flushed_at = -1;
+        for (int i = 0; i < 8000; ++i) {
+            char key[16];
+            std::snprintf(key, sizeof(key), "k%06d", i);
+            ASSERT_TRUE(db.Put(key, big).ok());
+            if (i % 64 == 0) {
+                int logs, tables, tmps;
+                CountFiles(dir, &logs, &tables, &tmps);
+                if (tables >= 1) {
+                    flushed_at = i;
+                    break;
+                }
+            }
+        }
+        ASSERT_GT(flushed_at, 0) << "写入 ~8MB 仍未触发自动 flush";
+
+        int logs, tables, tmps;
+        CountFiles(dir, &logs, &tables, &tmps);
+        EXPECT_GE(tables, 1);   // .ldb 已产生
+        EXPECT_EQ(logs, 1);     // WAL 已轮换，始终恰好 1 个活跃
+        EXPECT_EQ(tmps, 0);     // 无残留临时文件
+
+        // flush 之后的新写入进新 mem，立即可读
+        ASSERT_TRUE(db.Put("tail", "tv").ok());
+        std::string v;
+        ASSERT_TRUE(db.Get("tail", &v).ok());
+        EXPECT_EQ(v, "tv");
+    }
+    RemoveDir(dir);
+}
+
 // 无 flush 重开：仅靠编号 WAL 回放恢复，并能续写同一文件
 TEST(DBTest, RecoverFromNumberedLog) {
     const std::string dir = MakeTempDir();

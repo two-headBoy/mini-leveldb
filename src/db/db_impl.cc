@@ -30,6 +30,9 @@ private:
     MemTable* mem_;
 };
 
+// mem 超此容量同步刷盘（不做后台线程，卡顿在 Put 路径是已知代价）
+constexpr size_t kMaxMemTableBytes = 4 * 1024 * 1024;
+
 }  // namespace
 
 DBImpl::DBImpl(const std::string& dbname)
@@ -172,6 +175,11 @@ Status DBImpl::Write(WriteBatch* batch) {
         return s2;
     }
     last_seq_ += batch->Count();
+
+    // 同步 flush：失败向上传播（WAL 已落盘，返回失败也不丢数据）
+    if (mem_->ApproximateMemoryUsage() >= kMaxMemTableBytes) {
+        return FlushMemTable();
+    }
     return Status::OK();
 }
 

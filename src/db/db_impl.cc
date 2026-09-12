@@ -81,6 +81,20 @@ Status DBImpl::Init() {
         }
     }
 
+    // 历史 SSTable 降序挂载：ListFiles 编号升序，反向 push_back 即新表在前 = Get 下探序
+    for (auto it = files.rbegin(); it != files.rend(); ++it) {
+        if (it->type != FileType::kTableFile) {
+            continue;
+        }
+        const std::string path = TableFileName(dbname_, it->number);
+        Table* table = nullptr;
+        const Status ts = Table::Open(path, &table);
+        if (!ts.ok()) {
+            return ts;
+        }
+        tables_.emplace_back(table);
+    }
+
     // 编号升序回放全部 WAL（正常仅 1 个；rename 后删 log 前崩溃可能留多个，
     // 回放产生重复数据，Get 从新到旧 + 高 seq 优先 → 幂等无害）
     uint64_t seq = 0;

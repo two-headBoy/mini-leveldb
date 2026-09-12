@@ -251,6 +251,101 @@ TEST(DBTest, RecoverFromNumberedLog) {
     RemoveDir(dir);
 }
 
+// B6：flush 后重开，数据从磁盘 .ldb 挂回（不依赖 WAL 回放该批数据）
+TEST(DBTest, RecoverFromTablesOnReopen) {
+    const std::string dir = MakeTempDir();
+    ASSERT_FALSE(dir.empty());
+    {
+        DBTest db(dir);
+        ASSERT_TRUE(db.Init().ok());
+        ASSERT_TRUE(db.Put("a", "1").ok());
+        ASSERT_TRUE(db.Put("x", "secret").ok());
+        ASSERT_TRUE(db.Flush().ok());          // 进 .ldb，旧 WAL 已删
+        ASSERT_TRUE(db.Delete("x").ok());      // 墓碑进新 WAL，尚未 flush
+        ASSERT_TRUE(db.Put("tail", "tv").ok());
+    }
+    {
+        DBTest db(dir);
+        ASSERT_TRUE(db.Init().ok());
+        std::string v;
+        ASSERT_TRUE(db.Get("a", &v).ok());          // .ldb
+        EXPECT_EQ(v, "1");
+        ASSERT_TRUE(db.Get("tail", &v).ok());       // 新 WAL 回放
+        EXPECT_EQ(v, "tv");
+        EXPECT_TRUE(db.Get("x", &v).IsNotFound());  // 新层墓碑遮蔽旧表值
+    }
+    RemoveDir(dir);
+}
+
+// 场景⑥：残留孤儿 .tmp 重开即删，磁盘表数据不丢
+TEST(DBTest, OrphanTmpCleanedOnReopen) {
+    const std::string dir = MakeTempDir();
+    ASSERT_FALSE(dir.empty());
+    {
+        DBTest db(dir);
+        ASSERT_TRUE(db.Init().ok());
+        ASSERT_TRUE(db.Put("a", "1").ok());
+        ASSERT_TRUE(db.Flush().ok());
+    }
+    // 模拟 flush 写 .tmp 中途崩溃：手动留一个假临时文件
+    {
+        const std::string tmp = TempFileName(dir, 99);
+        std::FILE* f = std::fopen(tmp.c_str(), "wb");
+        ASSERT_NE(f, nullptr);
+        std::fputs("garbage", f);
+        std::fclose(f);
+    }
+    {
+        DBTest db(dir);
+        ASSERT_TRUE(db.Init().ok());
+        int logs, tables, tmps;
+        CountFiles(dir, &logs, &tables, &tmps);
+        EXPECT_EQ(tmps, 0);                  // 孤儿被清理
+        EXPECT_GE(tables, 1);
+        std::string v;
+        ASSERT_TRUE(db.Get("a", &v).ok());  // 数据未丢
+        EXPECT_EQ(v, "1");
+    }
+    RemoveDir(dir);
+}
+
+// 场景⑦（闭环红线）：10 万条跨多次 flush，重开后随机读全命中
+TEST(DBTest, OneHundredKEntriesSurviveReopen) {
+    constexpr int kN = 100000;
+    const std::string dir = MakeTempDir();
+    ASSERT_FALSE(dir.empty());
+    {
+        DBTest db(dir);
+        ASSERT_TRUE(db.Init().ok());
+        const std::string val(100, 'v');
+        for (int i = 0; i < kN; ++i) {
+            char key[16];
+            std::snprintf(key, sizeof(key), "k%06d", i);
+            ASSERT_TRUE(db.Put(key, val).ok());
+        }
+    }
+    {
+        DBTest db(dir);
+        ASSERT_TRUE(db.Init().ok());
+        int logs, tables, tmps;
+        CountFiles(dir, &logs, &tables, &tmps);
+        EXPECT_GE(tables, 2);    // 10MB+ 数据应跨多张表
+        EXPECT_EQ(tmps, 0);
+
+        // 确定性伪随机采样 2000 个 key
+        const std::string expect(100, 'v');
+        for (int s = 0; s < 2000; ++s) {
+            const int i = (s * 7919 + 13) % kN;
+            char key[16];
+            std::snprintf(key, sizeof(key), "k%06d", i);
+            std::string v;
+            ASSERT_TRUE(db.Get(key, &v).ok()) << "miss key " << key;
+            EXPECT_EQ(v, expect);
+        }
+    }
+    RemoveDir(dir);
+}
+
 // 空 mem flush 不应刷出空表
 TEST(DBTest, FlushEmptyMemIsNoop) {
     const std::string dir = MakeTempDir();

@@ -33,3 +33,7 @@ foreach(test_src ${TEST_SOURCES})
         Threads::Threads
     )
 endforeach()
+
+# 上手演示：项目根目录运行 ./build/demo，数据落在 demo_db/
+add_executable(demo examples/demo.cc)
+target_link_libraries(demo PRIVATE mini_leveldb Threads::Threads)

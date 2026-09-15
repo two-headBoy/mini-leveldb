@@ -1,9 +1,9 @@
+#include "mini-leveldb/write_batch.h"
+
 #include <gtest/gtest.h>
 
 #include <string>
 #include <vector>
-
-#include "mini-leveldb/write_batch.h"
 
 using namespace mini_leveldb;
 
@@ -16,16 +16,18 @@ struct Record {
 };
 
 class CollectingHandler : public WriteBatch::Handler {
-public:
+   public:
     void Put(uint64_t seq, const Slice& key, const Slice& value) override {
-        records_.push_back({Record::kPut, seq, key.ToString(), value.ToString()});
+        records_.push_back(
+            {Record::kPut, seq, key.ToString(), value.ToString()});
     }
     void Delete(uint64_t seq, const Slice& key) override {
-        records_.push_back({Record::kDelete, seq, key.ToString(), std::string()});
+        records_.push_back(
+            {Record::kDelete, seq, key.ToString(), std::string()});
     }
     const std::vector<Record>& records() const { return records_; }
 
-private:
+   private:
     std::vector<Record> records_;
 };
 
@@ -146,7 +148,10 @@ TEST(WriteBatchTest, RejectTooManyRecords) {
     // 篡改 count 为 1（实际 2 条）
     std::string data = batch.Data();
     // count 在 offset 8，4B
-    data[8] = 1; data[9] = 0; data[10] = 0; data[11] = 0;
+    data[8] = 1;
+    data[9] = 0;
+    data[10] = 0;
+    data[11] = 0;
 
     WriteBatch restored;
     ASSERT_TRUE(restored.SetContents(data).ok());
@@ -163,7 +168,10 @@ TEST(WriteBatchTest, RejectTooFewRecords) {
     batch.Put("a", "1");
     // 篡改 count 为 5
     std::string data = batch.Data();
-    data[8] = 5; data[9] = 0; data[10] = 0; data[11] = 0;
+    data[8] = 5;
+    data[9] = 0;
+    data[10] = 0;
+    data[11] = 0;
 
     WriteBatch restored;
     ASSERT_TRUE(restored.SetContents(data).ok());

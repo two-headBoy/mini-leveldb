@@ -9,15 +9,14 @@
 #include "table/block.h"
 #include "table/format.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
-class TableBuilder;   // 前向声明，文件管理交给调用方
+class TableBuilder;  // 前向声明，文件管理交给调用方
 
 // SSTable 读器：打开文件读 Footer，提供 Get 查找
 // 查找路径：index block 二分 → 定位 data block → data block 二分
 class Table {
-public:
+   public:
     // 打开已写好的 SSTable，校验 magic 并读入索引块
     static Status Open(const std::string& fname, Table** table);
 
@@ -27,11 +26,11 @@ public:
     Table& operator=(const Table&) = delete;
 
     // 查找 user_key 的最新版本，三态上报：
-    // kValue 填充 value；kDeleted = 本表最新版本是墓碑（多层 Get 靠它终止下探）；
-    // kNotFound = 本表没有该 key
+    // kValue 填充 value；kDeleted = 本表最新版本是墓碑（多层 Get
+    // 靠它终止下探）； kNotFound = 本表没有该 key
     LookupState Get(const Slice& user_key, std::string* value);
 
-private:
+   private:
     // index_data 已从文件读出，Table 内部拷贝一份供 Block 长期引用
     Table(std::FILE* file, const Slice& index_data);
 
@@ -42,4 +41,4 @@ private:
     Block index_block_;
 };
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

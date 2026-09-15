@@ -4,8 +4,7 @@
 
 #include "util/coding.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 void BlockBuilder::Reset() {
     buffer_.clear();
@@ -24,8 +23,7 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
     size_t shared = 0;
     if (counter_ > 0) {
         const size_t min_len = std::min(key.size(), last_key_.size());
-        while (shared < min_len &&
-               key.data()[shared] == last_key_[shared]) {
+        while (shared < min_len && key.data()[shared] == last_key_[shared]) {
             shared++;
         }
     }
@@ -42,7 +40,7 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
 
     counter_++;
     if (counter_ >= kRestartInterval) {
-        counter_ = 0;   // 归零，下一条即为新 restart point
+        counter_ = 0;  // 归零，下一条即为新 restart point
     }
 }
 
@@ -64,4 +62,4 @@ size_t BlockBuilder::CurrentSizeEstimate() const {
     return buffer_.size() + 4 + restarts_.size() * 4;
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

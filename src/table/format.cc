@@ -3,8 +3,7 @@
 #include "util/coding.h"
 #include "util/crc32c.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 void BlockHandle::EncodeTo(std::string* dst) const {
     PutVarint64(dst, offset_);
@@ -22,9 +21,11 @@ void Footer::EncodeTo(std::string* dst) const {
     const size_t original_size = dst->size();
     metaindex_handle_.EncodeTo(dst);
     index_handle_.EncodeTo(dst);
-    dst->resize(original_size + 2 * BlockHandle::kMaxEncodedLength);   // 补零到定长
+    dst->resize(original_size +
+                2 * BlockHandle::kMaxEncodedLength);  // 补零到定长
     char magic[8];
-    EncodeFixed32(magic, static_cast<uint32_t>(kTableMagicNumber & 0xffffffffu));
+    EncodeFixed32(magic,
+                  static_cast<uint32_t>(kTableMagicNumber & 0xffffffffu));
     EncodeFixed32(magic + 4, static_cast<uint32_t>(kTableMagicNumber >> 32));
     dst->append(magic, 8);
 }
@@ -96,4 +97,4 @@ Status ReadBlock(std::FILE* file, const BlockHandle& handle,
     return Status::OK();
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

@@ -5,19 +5,18 @@
 #include "util/coding.h"
 #include "util/crc32c.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 Status LogWriter::AddRecord(const Slice& data) {
     const char* ptr = data.data();
     size_t left = data.size();
-    bool begin = true;   // 是否本条记录的第一片
+    bool begin = true;  // 是否本条记录的第一片
     Status s;
 
     do {
         const size_t leftover = kBlockSize - block_offset_;
         if (leftover < static_cast<size_t>(kHeaderSize)) {
-            if (leftover > 0) {   // 块尾填零废弃
+            if (leftover > 0) {  // 块尾填零废弃
                 static const char kZeros[kHeaderSize - 1] = {0};
                 if (std::fwrite(kZeros, 1, leftover, file_) != leftover) {
                     return Status::IOError("write log padding failed");
@@ -53,7 +52,8 @@ Status LogWriter::AddRecord(const Slice& data) {
     return s;
 }
 
-Status LogWriter::EmitPhysicalRecord(RecordType type, const char* ptr, size_t len) {
+Status LogWriter::EmitPhysicalRecord(RecordType type, const char* ptr,
+                                     size_t len) {
     char header[kHeaderSize];
     header[4] = static_cast<char>(len & 0xff);
     header[5] = static_cast<char>((len >> 8) & 0xff);
@@ -71,4 +71,4 @@ Status LogWriter::EmitPhysicalRecord(RecordType type, const char* ptr, size_t le
     return Status::OK();
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

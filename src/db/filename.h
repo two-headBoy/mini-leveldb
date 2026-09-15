@@ -6,14 +6,13 @@
 
 #include "mini-leveldb/status.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 // 文件类型；log/ldb 共用同一单调编号空间，higher-number-is-newer
 enum class FileType {
     kLogFile,
     kTableFile,
-    kTempFile,   // 刷盘中 {n}.ldb.tmp，rename 后转正
+    kTempFile,  // 刷盘中 {n}.ldb.tmp，rename 后转正
 };
 
 std::string LogFileName(const std::string& dbname, uint64_t number);
@@ -31,4 +30,4 @@ struct FileInfo {
 // 扫描目录列出全部识别文件，按编号升序；无法识别的条目直接忽略
 Status ListFiles(const std::string& dbname, std::vector<FileInfo>* files);
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

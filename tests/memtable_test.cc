@@ -1,9 +1,10 @@
+#include "db/memtable.h"
+
 #include <gtest/gtest.h>
 
 #include <string>
 
 #include "db/dbformat.h"
-#include "db/memtable.h"
 
 using namespace mini_leveldb;
 
@@ -139,8 +140,8 @@ TEST(MemTableTest, BatchWriteAndRandomRead) {
 TEST(MemTableTest, TombstoneThenHigherSeqPutVisible) {
     MemTable mem;
     mem.Add(1, kTypeValue, "key", "old");
-    mem.Add(2, kTypeDeletion, "key", Slice());   // 删除
-    mem.Add(3, kTypeValue, "key", "new");         // 重新写入，seq 更大
+    mem.Add(2, kTypeDeletion, "key", Slice());  // 删除
+    mem.Add(3, kTypeValue, "key", "new");       // 重新写入，seq 更大
 
     std::string value;
     ASSERT_EQ(mem.Get("key", &value), LookupState::kValue);
@@ -151,8 +152,8 @@ TEST(MemTableTest, TombstoneThenHigherSeqPutVisible) {
 TEST(MemTableTest, TombstoneThenLowerSeqPutInvisible) {
     MemTable mem;
     mem.Add(3, kTypeValue, "key", "high");
-    mem.Add(5, kTypeDeletion, "key", Slice());    // 删除（seq=5）
-    mem.Add(4, kTypeValue, "key", "stale");       // 旧版本写入，seq 更低
+    mem.Add(5, kTypeDeletion, "key", Slice());  // 删除（seq=5）
+    mem.Add(4, kTypeValue, "key", "stale");     // 旧版本写入，seq 更低
 
     std::string value;
     // seq=5 的 tombstone 仍最新，应上报 kDeleted
@@ -189,7 +190,7 @@ TEST(MemTableTest, SequentialIterationForFlush) {
     };
     const Expected exp[] = {
         {"a", 1, kTypeValue, "va"},
-        {"b", 3, kTypeValue, "v3"},     // 同 user 高 seq 在前
+        {"b", 3, kTypeValue, "v3"},  // 同 user 高 seq 在前
         {"b", 2, kTypeDeletion, nullptr},
         {"c", 2, kTypeValue, "vc"},
     };

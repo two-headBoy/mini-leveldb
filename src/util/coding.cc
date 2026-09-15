@@ -44,7 +44,7 @@ const char* GetVarint64Ptr(const char* p, const char* limit, uint64_t* value) {
     return nullptr;
 }
 
-} // namespace
+}  // namespace
 
 void PutVarint32(std::string* dst, uint32_t v) {
     char buf[5];
@@ -89,4 +89,4 @@ bool GetLengthPrefixedSlice(Slice* input, Slice* result) {
     return false;
 }
 
-} // namespace mini_leveldb
+}  // namespace mini_leveldb

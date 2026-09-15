@@ -2,17 +2,15 @@
 
 #include "util/coding.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 Block::Block(const Slice& contents) {
-    if (contents.size() < 4) return;   // 空块或非法块
+    if (contents.size() < 4) return;  // 空块或非法块
 
     // 块尾 4B 是 restart count，先读它才能倒推数组起点
-    const uint32_t count =
-        DecodeFixed32(contents.data() + contents.size() - 4);
+    const uint32_t count = DecodeFixed32(contents.data() + contents.size() - 4);
     const size_t restart_array_size = count * 4;
-    if (contents.size() < 4 + restart_array_size) return;   // 损坏数据
+    if (contents.size() < 4 + restart_array_size) return;  // 损坏数据
 
     // restart 数组紧跟 count 之前，前面的就是 data_
     const char* restart_ptr =
@@ -33,8 +31,7 @@ void Block::Iterator::DecodeEntry() {
     }
     Slice input(data_.data() + current_, data_.size() - current_);
     uint32_t shared = 0, unshared = 0, value_len = 0;
-    if (!GetVarint32(&input, &shared) ||
-        !GetVarint32(&input, &unshared) ||
+    if (!GetVarint32(&input, &shared) || !GetVarint32(&input, &unshared) ||
         !GetVarint32(&input, &value_len)) {
         valid_ = false;
         return;
@@ -45,9 +42,10 @@ void Block::Iterator::DecodeEntry() {
     key_.append(input.data(), unshared);
     input.remove_prefix(unshared);
 
-    value_ = Slice(input.data(), value_len);   // 零拷贝
+    value_ = Slice(input.data(), value_len);  // 零拷贝
 
-    // input.data() 此时指向 value 起点，差值 = 三元组+key差量的字节数，加 value_len 得整条 entry 大小
+    // input.data() 此时指向 value 起点，差值 = 三元组+key差量的字节数，加
+    // value_len 得整条 entry 大小
     const size_t entry_size =
         (input.data() - data_.data() - current_) + value_len;
     current_ += static_cast<uint32_t>(entry_size);
@@ -60,7 +58,7 @@ void Block::Iterator::SeekToFirst() {
         return;
     }
     restart_index_ = 0;
-    current_ = restarts_[0];   // 第一条一定是 restart point
+    current_ = restarts_[0];  // 第一条一定是 restart point
     DecodeEntry();
 }
 
@@ -75,7 +73,8 @@ void Block::Iterator::Seek(const Slice& target) {
     uint32_t left = 0;
     uint32_t right = static_cast<uint32_t>(restarts_.size()) - 1;
     while (left < right) {
-        // 上中点：left=mid 时不会死循环（如 left=3,right=4 → mid=4 → right=3 收敛）
+        // 上中点：left=mid 时不会死循环（如 left=3,right=4 → mid=4 → right=3
+        // 收敛）
         uint32_t mid = (left + right + 1) / 2;
         current_ = restarts_[mid];
         DecodeEntry();
@@ -98,7 +97,7 @@ void Block::Iterator::Seek(const Slice& target) {
 
 void Block::Iterator::Next() {
     if (!valid_) return;
-    DecodeEntry();   // 解析下一条，current_ 自动推进
+    DecodeEntry();  // 解析下一条，current_ 自动推进
 
     // 同步 restart_index_：跨过下一个 restart 时前移
     // 非必须，下次 Seek 会重算，但保持状态一致更健康
@@ -108,4 +107,4 @@ void Block::Iterator::Next() {
     }
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

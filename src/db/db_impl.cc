@@ -10,14 +10,13 @@
 #include "table/table.h"
 #include "table/table_builder.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 namespace {
 
 // WriteBatch 回放的接收端：直接落进 MemTable
 class MemTableInserter : public WriteBatch::Handler {
-public:
+   public:
     explicit MemTableInserter(MemTable* mem) : mem_(mem) {}
 
     void Put(uint64_t seq, const Slice& key, const Slice& value) override {
@@ -27,7 +26,7 @@ public:
         mem_->Add(seq, kTypeDeletion, key, Slice());
     }
 
-private:
+   private:
     MemTable* mem_;
 };
 
@@ -37,8 +36,7 @@ constexpr size_t kMaxMemTableBytes = 4 * 1024 * 1024;
 }  // namespace
 
 DBImpl::DBImpl(const std::string& dbname)
-    : dbname_(dbname),
-      mem_(new MemTable) {}
+    : dbname_(dbname), mem_(new MemTable) {}
 
 DBImpl::~DBImpl() {
     if (log_file_ != nullptr) {
@@ -60,7 +58,7 @@ Status DB::Open(const std::string& name, DB** dbptr) {
 }
 
 Status DBImpl::Init() {
-    ::mkdir(dbname_.c_str(), 0755);   // 已存在则忽略
+    ::mkdir(dbname_.c_str(), 0755);  // 已存在则忽略
 
     // 扫目录：定编号基线（max+1），顺带清理孤儿 .tmp（刷盘中途崩溃的残留）
     std::vector<FileInfo> files;
@@ -81,7 +79,8 @@ Status DBImpl::Init() {
         }
     }
 
-    // 历史 SSTable 降序挂载：ListFiles 编号升序，反向 push_back 即新表在前 = Get 下探序
+    // 历史 SSTable 降序挂载：ListFiles 编号升序，反向 push_back 即新表在前 =
+    // Get 下探序
     for (auto it = files.rbegin(); it != files.rend(); ++it) {
         if (it->type != FileType::kTableFile) {
             continue;
@@ -104,9 +103,11 @@ Status DBImpl::Init() {
                 continue;
             }
             const std::string path = LogFileName(dbname_, f.number);
-            // 最大 log 回放后续开为当前 WAL，其余回放完即关（残留待下次 flush 清）
+            // 最大 log 回放后续开为当前 WAL，其余回放完即关（残留待下次 flush
+            // 清）
             const bool is_current = (f.number == max_log_number);
-            std::FILE* lf = std::fopen(path.c_str(), is_current ? "a+b" : "r+b");
+            std::FILE* lf =
+                std::fopen(path.c_str(), is_current ? "a+b" : "r+b");
             if (lf == nullptr) {
                 return Status::IOError("open log failed: " + path);
             }
@@ -120,8 +121,8 @@ Status DBImpl::Init() {
                 log_file_ = lf;
                 // valid_end 之后即续写点
                 std::fseek(log_file_, 0, SEEK_END);
-                log_.reset(new LogWriter(log_file_,
-                                         static_cast<uint64_t>(std::ftell(log_file_))));
+                log_.reset(new LogWriter(
+                    log_file_, static_cast<uint64_t>(std::ftell(log_file_))));
             } else {
                 std::fclose(lf);
             }
@@ -169,7 +170,8 @@ Status DBImpl::Recover(std::FILE* file, uint64_t* max_seq) {
     *max_seq = seq;
 
     // 剪掉残尾：保证"坏只在尾部"，之后直接追加才安全
-    if (::ftruncate(::fileno(file), static_cast<off_t>(reader.valid_end())) != 0) {
+    if (::ftruncate(::fileno(file), static_cast<off_t>(reader.valid_end())) !=
+        0) {
         return Status::IOError("truncate log tail failed");
     }
     return Status::OK();
@@ -179,13 +181,13 @@ Status DBImpl::Write(WriteBatch* batch) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     batch->set_sequence(last_seq_ + 1);
-    const Status s1 = log_->AddRecord(batch->Data());   // 先落 WAL
+    const Status s1 = log_->AddRecord(batch->Data());  // 先落 WAL
     if (!s1.ok()) {
         return s1;
     }
 
     MemTableInserter inserter(mem_.get());
-    const Status s2 = batch->Iterate(&inserter);        // 再进内存
+    const Status s2 = batch->Iterate(&inserter);  // 再进内存
     if (!s2.ok()) {
         return s2;
     }
@@ -205,7 +207,7 @@ Status DBImpl::FlushMemTable() {
     auto it = mem_->NewIterator();
     it.SeekToFirst();
     if (!it.Valid()) {
-        return Status::OK();   // 空 mem 不刷空表
+        return Status::OK();  // 空 mem 不刷空表
     }
 
     const uint64_t table_number = next_file_number_++;
@@ -218,7 +220,7 @@ Status DBImpl::FlushMemTable() {
         return Status::IOError("create tmp table failed: " + tmp_name);
     }
     {
-        TableBuilder builder(tf);   // 析构负责 fclose，错误路径也覆盖
+        TableBuilder builder(tf);  // 析构负责 fclose，错误路径也覆盖
         for (; it.Valid(); it.Next()) {
             const Status s = builder.Add(it.ikey(), it.value());
             if (!s.ok()) return s;
@@ -237,7 +239,7 @@ Status DBImpl::FlushMemTable() {
     Table* table = nullptr;
     Status os = Table::Open(table_name, &table);
     if (!os.ok()) {
-        return os;   // 文件已落盘，保留旧 WAL；重启按 .ldb + WAL 幂等恢复
+        return os;  // 文件已落盘，保留旧 WAL；重启按 .ldb + WAL 幂等恢复
     }
     tables_.insert(tables_.begin(), std::unique_ptr<Table>(table));
 
@@ -300,4 +302,4 @@ Status DBImpl::Get(const Slice& key, std::string* value) {
     return Status::NotFound(key);
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

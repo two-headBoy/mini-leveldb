@@ -3,12 +3,11 @@
 #include "db/dbformat.h"
 #include "util/coding.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 namespace {
 // 记录首字节复用 MemTable 的值类型，回放时可直接对应 Add 的 type
-constexpr uint8_t kTagValue    = static_cast<uint8_t>(kTypeValue);
+constexpr uint8_t kTagValue = static_cast<uint8_t>(kTypeValue);
 constexpr uint8_t kTagDeletion = static_cast<uint8_t>(kTypeDeletion);
 }  // namespace
 
@@ -17,17 +16,11 @@ void WriteBatch::Clear() {
     rep_.resize(kHeader);
 }
 
-int WriteBatch::Count() const {
-    return DecodeFixed32(rep_.data() + 8);
-}
+int WriteBatch::Count() const { return DecodeFixed32(rep_.data() + 8); }
 
-uint64_t WriteBatch::sequence() const {
-    return DecodeFixed64(rep_.data());
-}
+uint64_t WriteBatch::sequence() const { return DecodeFixed64(rep_.data()); }
 
-void WriteBatch::set_sequence(uint64_t seq) {
-    EncodeFixed64(&rep_[0], seq);
-}
+void WriteBatch::set_sequence(uint64_t seq) { EncodeFixed64(&rep_[0], seq); }
 
 void WriteBatch::Put(const Slice& key, const Slice& value) {
     rep_.push_back(kTagValue);
@@ -84,10 +77,10 @@ Status WriteBatch::Iterate(Handler* handler) const {
         --remaining;
     }
 
-    if (remaining != 0) {   // header 声明的记录数没凑齐
+    if (remaining != 0) {  // header 声明的记录数没凑齐
         return Status::Corruption("WriteBatch has wrong count");
     }
     return Status::OK();
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

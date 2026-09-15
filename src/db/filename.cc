@@ -5,8 +5,7 @@
 #include <algorithm>
 #include <cstdlib>
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 std::string LogFileName(const std::string& dbname, uint64_t number) {
     return dbname + "/" + std::to_string(number) + ".log";
@@ -32,17 +31,19 @@ bool ParseFileName(const std::string& fname, uint64_t* number, FileType* type) {
     if (name.size() > 8 && name.compare(name.size() - 8, 8, ".ldb.tmp") == 0) {
         t = FileType::kTempFile;
         base_len = name.size() - 8;
-    } else if (name.size() > 4 && name.compare(name.size() - 4, 4, ".ldb") == 0) {
+    } else if (name.size() > 4 &&
+               name.compare(name.size() - 4, 4, ".ldb") == 0) {
         t = FileType::kTableFile;
         base_len = name.size() - 4;
-    } else if (name.size() > 4 && name.compare(name.size() - 4, 4, ".log") == 0) {
+    } else if (name.size() > 4 &&
+               name.compare(name.size() - 4, 4, ".log") == 0) {
         t = FileType::kLogFile;
         base_len = name.size() - 4;
     } else {
         return false;
     }
 
-    if (base_len == 0) return false;   // 裸后缀没有编号
+    if (base_len == 0) return false;  // 裸后缀没有编号
     for (size_t i = 0; i < base_len; i++) {
         if (name[i] < '0' || name[i] > '9') return false;
     }
@@ -72,4 +73,4 @@ Status ListFiles(const std::string& dbname, std::vector<FileInfo>* files) {
     return Status::OK();
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

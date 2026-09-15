@@ -13,7 +13,7 @@ void PutVarint32(std::string* dst, uint32_t value);
 void PutVarint64(std::string* dst, uint64_t value);
 void PutLengthPrefixedSlice(std::string* dst, const Slice& value);
 
-// 变长编码：Slice 
+// 变长编码：Slice
 bool GetVarint32(Slice* input, uint32_t* value);
 bool GetVarint64(Slice* input, uint64_t* value);
 bool GetLengthPrefixedSlice(Slice* input, Slice* result);
@@ -51,4 +51,4 @@ inline uint64_t DecodeFixed64(const char* ptr) {
     return result;
 }
 
-} // namespace mini_leveldb
+}  // namespace mini_leveldb

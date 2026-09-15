@@ -3,8 +3,7 @@
 #include <cassert>
 #include <cstdint>
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 static const int kBlockSize = 4096;
 
@@ -46,7 +45,7 @@ char* Arena::AllocateAligned(size_t bytes) {
         result = curr_ + slop;
         curr_ += needed;
         avail_ -= needed;
-    } else {    // 参考原版，调用频率低，不进行检查大块小块检查
+    } else {  // 参考原版，调用频率低，不进行检查大块小块检查
         result = AllocateNewBlock(needed);
     }
     assert(reinterpret_cast<uintptr_t>(result) % align == 0);
@@ -60,4 +59,4 @@ char* Arena::AllocateNewBlock(size_t block_bytes) {
     return result;
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

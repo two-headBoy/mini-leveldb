@@ -1,13 +1,14 @@
+#include "table/table.h"
+
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <cstdio>
 #include <cstdlib>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 #include "db/dbformat.h"
-#include "table/table.h"
 #include "table/table_builder.h"
 
 using namespace mini_leveldb;
@@ -44,12 +45,12 @@ std::string BuildTable(const std::vector<Entry>& entries) {
     {
         TableBuilder builder(f);
         for (const auto& e : entries) {
-            EXPECT_TRUE(builder.Add(IKey(e.user_key, e.seq, e.type),
-                                    e.value).ok());
+            EXPECT_TRUE(
+                builder.Add(IKey(e.user_key, e.seq, e.type), e.value).ok());
         }
         EXPECT_TRUE(builder.Finish().ok());
         EXPECT_GT(builder.FileSize(), 0u);
-    }   // 析构 fflush + fclose
+    }  // 析构 fflush + fclose
     return path;
 }
 
@@ -103,7 +104,8 @@ TEST(TableTest, LargeRoundTrip100K) {
         char k[32], v[32];
         std::snprintf(k, sizeof(k), "key%06d", i);
         std::snprintf(v, sizeof(v), "val%06d", i);
-        ASSERT_EQ(table->Get(k, &value), LookupState::kValue) << "missing: " << k;
+        ASSERT_EQ(table->Get(k, &value), LookupState::kValue)
+            << "missing: " << k;
         EXPECT_EQ(value, v);
     }
     // 边界外未命中
@@ -117,8 +119,8 @@ TEST(TableTest, LargeRoundTrip100K) {
 // 单条大 value（超过 4KB block 目标）不切块逻辑异常
 TEST(TableTest, LargeValue) {
     std::string big(100 * 1024, 'x');
-    std::string path = BuildTable({{"big", 1, kTypeValue, big},
-                                   {"small", 1, kTypeValue, "s"}});
+    std::string path = BuildTable(
+        {{"big", 1, kTypeValue, big}, {"small", 1, kTypeValue, "s"}});
 
     Table* table = nullptr;
     ASSERT_TRUE(Table::Open(path, &table).ok());
@@ -174,8 +176,8 @@ TEST(TableTest, MultipleVersionsReturnNewest) {
 TEST(TableTest, LookupStateThreeWay) {
     std::string path = BuildTable({
         {"gone", 10, kTypeDeletion, ""},
-        {"gone", 5,  kTypeValue, "old"},   // 被 seq10 墓碑遮蔽
-        {"hit",  20, kTypeValue, "v"},
+        {"gone", 5, kTypeValue, "old"},  // 被 seq10 墓碑遮蔽
+        {"hit", 20, kTypeValue, "v"},
     });
 
     Table* table = nullptr;

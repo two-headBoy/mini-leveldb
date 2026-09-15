@@ -9,8 +9,8 @@
 namespace mini_leveldb {
 
 enum ValueType : uint8_t {
-    kTypeDeletion = 0,   // 删除标记
-    kTypeValue    = 1,   // 普通
+    kTypeDeletion = 0,  // 删除标记
+    kTypeValue = 1,     // 普通
 };
 
 using SequenceNumber = uint64_t;
@@ -57,7 +57,7 @@ inline bool ParseInternalKey(Slice internal, ParsedInternalKey* result) {
 
 // 严格弱序：user_key 升序 → tag (seq<<8|type) 降序，保证同 key 新版本排前面
 class InternalKeyComparator {
-public:
+   public:
     bool operator()(const Slice& a, const Slice& b) const {
         int r = ExtractUserKey(a).compare(ExtractUserKey(b));
         if (r != 0) return r < 0;
@@ -65,4 +65,4 @@ public:
     }
 };
 
-} // namespace mini_leveldb
+}  // namespace mini_leveldb

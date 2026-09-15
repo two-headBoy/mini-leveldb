@@ -1,15 +1,14 @@
 #pragma once
 
+#include <algorithm>
+#include <cstring>
 #include <string>
 #include <string_view>
-#include <cstring>
-#include <algorithm>
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 class Slice {
-public:
+   public:
     Slice() = default;
     Slice(const char* d, size_t n) : view_(d, n) {}
     Slice(const char* s) : view_(s) {}
@@ -34,25 +33,18 @@ public:
     }
 
     bool starts_with(const Slice& prefix) const {
-        return size() >= prefix.size()
-            && std::memcmp(data(), prefix.data(), prefix.size()) == 0;
+        return size() >= prefix.size() &&
+               std::memcmp(data(), prefix.data(), prefix.size()) == 0;
     }
 
-    bool operator==(const Slice& other) const {
-        return compare(other) == 0;
-    }
+    bool operator==(const Slice& other) const { return compare(other) == 0; }
 
-    bool operator!=(const Slice& other) const {
-        return !(*this == other);
-    }
+    bool operator!=(const Slice& other) const { return !(*this == other); }
 
-    bool operator<(const Slice& other) const {
-        return compare(other) < 0;
-    }
+    bool operator<(const Slice& other) const { return compare(other) < 0; }
 
-private:
+   private:
     std::string_view view_;
-
 };
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

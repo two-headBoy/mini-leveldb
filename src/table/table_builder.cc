@@ -4,8 +4,7 @@
 
 #include "util/coding.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 TableBuilder::TableBuilder(std::FILE* file) : file_(file) {}
 
@@ -78,4 +77,4 @@ Status TableBuilder::Finish() {
     return Status::OK();
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

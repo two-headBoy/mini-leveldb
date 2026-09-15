@@ -3,8 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 // MurmurHash 变体，Bloom Filter 用。seed 让同一 key 可派生出 k 个独立哈希值。
 // 必须确定性（跨平台一致），reopen 后 Bloom 位数组才不会失效。
@@ -41,4 +40,4 @@ inline uint32_t Hash(const char* data, size_t n, uint32_t seed) {
     return h;
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

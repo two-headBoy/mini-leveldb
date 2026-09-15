@@ -1,9 +1,10 @@
+#include "table/block.h"
+
 #include <gtest/gtest.h>
 
 #include <cstdio>
 #include <string>
 
-#include "table/block.h"
 #include "table/block_builder.h"
 
 using namespace mini_leveldb;

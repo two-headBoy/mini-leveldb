@@ -4,11 +4,10 @@
 
 #include "mini-leveldb/slice.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 class Status {
-public:
+   public:
     Status() noexcept : code_(Code::kOk) {}
     ~Status() = default;
 
@@ -27,7 +26,8 @@ public:
     static Status NotSupported(const Slice& msg, const Slice& msg2 = Slice()) {
         return Status(kNotSupported, msg, msg2);
     }
-    static Status InvalidArgument(const Slice& msg, const Slice& msg2 = Slice()) {
+    static Status InvalidArgument(const Slice& msg,
+                                  const Slice& msg2 = Slice()) {
         return Status(kInvalidArgument, msg, msg2);
     }
     static Status IOError(const Slice& msg, const Slice& msg2 = Slice()) {
@@ -43,7 +43,7 @@ public:
 
     std::string ToString() const;
 
-private:
+   private:
     enum Code {
         kOk = 0,
         kNotFound = 1,
@@ -57,7 +57,6 @@ private:
 
     Code code_;
     std::string msg_;
-
 };
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

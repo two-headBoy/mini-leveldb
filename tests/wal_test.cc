@@ -23,9 +23,7 @@ std::string MakePayload(size_t n, char seed = 'A') {
 }
 
 // 用 tmpfile 打开，返回 FILE*（调用方负责 fclose）
-std::FILE* NewTempFile() {
-    return std::tmpfile();
-}
+std::FILE* NewTempFile() { return std::tmpfile(); }
 
 }  // namespace
 
@@ -156,7 +154,8 @@ TEST(WalTest, BlockTailPadding) {
     // 写 32760 字节，剩 1 字节 < 7，触发填零
     {
         LogWriter w(f);
-        ASSERT_TRUE(w.AddRecord(MakePayload(kBlockSize - kHeaderSize - 1, 'P')).ok());
+        ASSERT_TRUE(
+            w.AddRecord(MakePayload(kBlockSize - kHeaderSize - 1, 'P')).ok());
         // 第二条应从新块开始
         ASSERT_TRUE(w.AddRecord("second").ok());
     }
@@ -186,7 +185,7 @@ TEST(WalTest, CorruptedPayloadRejected) {
         ASSERT_TRUE(w.AddRecord("good first").ok());
         ASSERT_TRUE(w.AddRecord("corrupt me").ok());
         ASSERT_TRUE(w.AddRecord(MakePayload(kFillSize, 'F')).ok());  // 填满块1
-        ASSERT_TRUE(w.AddRecord("good last").ok());                 // 块2
+        ASSERT_TRUE(w.AddRecord("good last").ok());                  // 块2
     }
 
     // 定位第二条记录 payload 起点（17 + 7 = 24）并篡改
@@ -214,8 +213,9 @@ TEST(WalTest, CorruptedCrcRejected) {
     const size_t kFillSize = kBlockSize - 17 - 24 - kHeaderSize;
     {
         LogWriter w(f);
-        ASSERT_TRUE(w.AddRecord("first good").ok());                 // 10B payload, 17B record
-        ASSERT_TRUE(w.AddRecord("record to corrupt").ok());          // 17B payload, 24B record
+        ASSERT_TRUE(w.AddRecord("first good").ok());  // 10B payload, 17B record
+        ASSERT_TRUE(
+            w.AddRecord("record to corrupt").ok());  // 17B payload, 24B record
         ASSERT_TRUE(w.AddRecord(MakePayload(kFillSize, 'F')).ok());  // 填满块1
         ASSERT_TRUE(w.AddRecord("next good").ok());                  // 块2
     }
@@ -322,7 +322,8 @@ TEST(WalTest, WriterOffsetResumeAcrossBlock) {
     {
         LogWriter w(f);
         // payload 32760，加 7B header = 32767，剩 1 字节触发填零
-        ASSERT_TRUE(w.AddRecord(MakePayload(kBlockSize - kHeaderSize - 1, 'Z')).ok());
+        ASSERT_TRUE(
+            w.AddRecord(MakePayload(kBlockSize - kHeaderSize - 1, 'Z')).ok());
     }
 
     std::fseek(f, 0, SEEK_END);

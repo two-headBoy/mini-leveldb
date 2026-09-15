@@ -5,8 +5,7 @@
 #include "db/dbformat.h"
 #include "util/coding.h"
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
 Table::Table(std::FILE* file, const Slice& index_data)
     : file_(file),
@@ -70,7 +69,7 @@ LookupState Table::Get(const Slice& user_key, std::string* value) {
     auto index_it = index_block_.NewIterator();
     index_it.Seek(user_key);
     if (!index_it.Valid()) {
-        return LookupState::kNotFound;   // target 比所有块的 max key 都大
+        return LookupState::kNotFound;  // target 比所有块的 max key 都大
     }
 
     // 解码索引条目的 value（BlockHandle 编码）
@@ -83,7 +82,8 @@ LookupState Table::Get(const Slice& user_key, std::string* value) {
     // 读 data block
     std::string data_scratch;
     Slice data_block_contents;
-    Status s = ReadBlock(file_, data_handle, &data_scratch, &data_block_contents);
+    Status s =
+        ReadBlock(file_, data_handle, &data_scratch, &data_block_contents);
     if (!s.ok()) {
         return LookupState::kNotFound;
     }
@@ -102,14 +102,13 @@ LookupState Table::Get(const Slice& user_key, std::string* value) {
         return LookupState::kNotFound;
     }
 
-    const ValueType type =
-        static_cast<ValueType>(ExtractTag(ikey) & 0xff);
+    const ValueType type = static_cast<ValueType>(ExtractTag(ikey) & 0xff);
     if (type != kTypeValue) {
-        return LookupState::kDeleted;   // 本表最新版本是墓碑，必须上报
+        return LookupState::kDeleted;  // 本表最新版本是墓碑，必须上报
     }
 
     value->assign(data_it.value().data(), data_it.value().size());
     return LookupState::kValue;
 }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

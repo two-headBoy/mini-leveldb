@@ -1,11 +1,11 @@
-#include <gtest/gtest.h>
-
-#include <cstdio>
 #include <dirent.h>
-#include <memory>
-#include <string>
+#include <gtest/gtest.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include <cstdio>
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "db/db_impl.h"
@@ -17,7 +17,7 @@ namespace mini_leveldb {
 
 // 测试缝：friend 直构 DBImpl，B4 之前手动触发 flush
 class DBTest {
-public:
+   public:
     explicit DBTest(const std::string& dir) : impl_(new DBImpl(dir)) {}
     Status Init() { return impl_->Init(); }
 
@@ -26,11 +26,11 @@ public:
     Status Get(const Slice& k, std::string* v) { return impl_->Get(k, v); }
     Status Flush() { return impl_->FlushMemTable(); }
 
-private:
+   private:
     std::unique_ptr<DBImpl> impl_;
 };
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb
 
 namespace {
 
@@ -48,7 +48,8 @@ void RemoveDir(const std::string& dir) {
     if (d != nullptr) {
         struct dirent* e;
         while ((e = readdir(d)) != nullptr) {
-            if (std::string(e->d_name) == "." || e->d_name == std::string("..")) {
+            if (std::string(e->d_name) == "." ||
+                e->d_name == std::string("..")) {
                 continue;
             }
             std::remove((dir + "/" + e->d_name).c_str());
@@ -65,14 +66,20 @@ void CountFiles(const std::string& dir, int* logs, int* tables, int* tmps) {
     ASSERT_TRUE(ListFiles(dir, &files).ok());
     for (const auto& f : files) {
         switch (f.type) {
-            case FileType::kLogFile:   ++*logs; break;
-            case FileType::kTableFile: ++*tables; break;
-            case FileType::kTempFile:  ++*tmps; break;
+            case FileType::kLogFile:
+                ++*logs;
+                break;
+            case FileType::kTableFile:
+                ++*tables;
+                break;
+            case FileType::kTempFile:
+                ++*tmps;
+                break;
         }
     }
 }
 
-}   // namespace
+}  // namespace
 
 // 场景⑤：flush 后旧 .log 消失、.ldb 存在、无 .tmp，编号 log < ldb < 新 log
 TEST(DBTest, FlushRotatesLogAndLeavesTable) {
@@ -87,7 +94,7 @@ TEST(DBTest, FlushRotatesLogAndLeavesTable) {
 
         int logs, tables, tmps;
         CountFiles(dir, &logs, &tables, &tmps);
-        EXPECT_EQ(logs, 1);    // 旧 log 删除，新 log 已建
+        EXPECT_EQ(logs, 1);  // 旧 log 删除，新 log 已建
         EXPECT_EQ(tables, 1);
         EXPECT_EQ(tmps, 0);
 
@@ -108,7 +115,8 @@ TEST(DBTest, FlushRotatesLogAndLeavesTable) {
 }
 
 // 场景②：写超 4MB 阈值，Put 路径自动同步 flush 出 .ldb
-// 注：flush 后旧数据读回（.ldb 挂载）是 B5/B6 的断言，此处只验证自动触发与目录形态
+// 注：flush 后旧数据读回（.ldb 挂载）是 B5/B6
+// 的断言，此处只验证自动触发与目录形态
 TEST(DBTest, AutoFlushWhenMemTableFull) {
     const std::string dir = MakeTempDir();
     ASSERT_FALSE(dir.empty());
@@ -135,9 +143,9 @@ TEST(DBTest, AutoFlushWhenMemTableFull) {
 
         int logs, tables, tmps;
         CountFiles(dir, &logs, &tables, &tmps);
-        EXPECT_GE(tables, 1);   // .ldb 已产生
-        EXPECT_EQ(logs, 1);     // WAL 已轮换，始终恰好 1 个活跃
-        EXPECT_EQ(tmps, 0);     // 无残留临时文件
+        EXPECT_GE(tables, 1);  // .ldb 已产生
+        EXPECT_EQ(logs, 1);    // WAL 已轮换，始终恰好 1 个活跃
+        EXPECT_EQ(tmps, 0);    // 无残留临时文件
 
         // flush 之后的新写入进新 mem，立即可读
         ASSERT_TRUE(db.Put("tail", "tv").ok());
@@ -177,18 +185,18 @@ TEST(DBTest, NewestValueAcrossLayers) {
         ASSERT_TRUE(db.Init().ok());
 
         ASSERT_TRUE(db.Put("k", "v1").ok());
-        ASSERT_TRUE(db.Flush().ok());          // v1 进第 1 张表
-        ASSERT_TRUE(db.Put("k", "v2").ok());   // v2 留 mem
+        ASSERT_TRUE(db.Flush().ok());         // v1 进第 1 张表
+        ASSERT_TRUE(db.Put("k", "v2").ok());  // v2 留 mem
         std::string v;
         ASSERT_TRUE(db.Get("k", &v).ok());
         EXPECT_EQ(v, "v2");
 
-        ASSERT_TRUE(db.Flush().ok());          // v2 进第 2 张表（编号更大）
-        ASSERT_TRUE(db.Put("k", "v3").ok());   // v3 留 mem
+        ASSERT_TRUE(db.Flush().ok());  // v2 进第 2 张表（编号更大）
+        ASSERT_TRUE(db.Put("k", "v3").ok());  // v3 留 mem
         ASSERT_TRUE(db.Get("k", &v).ok());
         EXPECT_EQ(v, "v3");
 
-        ASSERT_TRUE(db.Flush().ok());          // mem 清空，v3 只在最新表
+        ASSERT_TRUE(db.Flush().ok());  // mem 清空，v3 只在最新表
         ASSERT_TRUE(db.Get("k", &v).ok());
         EXPECT_EQ(v, "v3");
     }
@@ -205,15 +213,15 @@ TEST(DBTest, TombstoneShieldsOlderTable) {
 
         ASSERT_TRUE(db.Put("x", "secret").ok());
         ASSERT_TRUE(db.Put("keep", "alive").ok());
-        ASSERT_TRUE(db.Flush().ok());          // 旧表：x=secret, keep=alive
+        ASSERT_TRUE(db.Flush().ok());  // 旧表：x=secret, keep=alive
 
-        ASSERT_TRUE(db.Delete("x").ok());      // 墓碑在 mem
+        ASSERT_TRUE(db.Delete("x").ok());  // 墓碑在 mem
         std::string v;
         EXPECT_TRUE(db.Get("x", &v).IsNotFound());
         ASSERT_TRUE(db.Get("keep", &v).ok());  // 不误伤其他 key
         EXPECT_EQ(v, "alive");
 
-        ASSERT_TRUE(db.Flush().ok());          // 墓碑刷进新 .ldb
+        ASSERT_TRUE(db.Flush().ok());  // 墓碑刷进新 .ldb
         EXPECT_TRUE(db.Get("x", &v).IsNotFound());
         ASSERT_TRUE(db.Get("keep", &v).ok());
         EXPECT_EQ(v, "alive");
@@ -239,7 +247,7 @@ TEST(DBTest, RecoverFromNumberedLog) {
         EXPECT_EQ(v, "v1");
         ASSERT_TRUE(db.Get("k2", &v).ok());
         EXPECT_EQ(v, "v2");
-        ASSERT_TRUE(db.Put("k3", "v3").ok());   // 续写到原 log
+        ASSERT_TRUE(db.Put("k3", "v3").ok());  // 续写到原 log
     }
     {
         DBTest db(dir);
@@ -260,17 +268,17 @@ TEST(DBTest, RecoverFromTablesOnReopen) {
         ASSERT_TRUE(db.Init().ok());
         ASSERT_TRUE(db.Put("a", "1").ok());
         ASSERT_TRUE(db.Put("x", "secret").ok());
-        ASSERT_TRUE(db.Flush().ok());          // 进 .ldb，旧 WAL 已删
-        ASSERT_TRUE(db.Delete("x").ok());      // 墓碑进新 WAL，尚未 flush
+        ASSERT_TRUE(db.Flush().ok());      // 进 .ldb，旧 WAL 已删
+        ASSERT_TRUE(db.Delete("x").ok());  // 墓碑进新 WAL，尚未 flush
         ASSERT_TRUE(db.Put("tail", "tv").ok());
     }
     {
         DBTest db(dir);
         ASSERT_TRUE(db.Init().ok());
         std::string v;
-        ASSERT_TRUE(db.Get("a", &v).ok());          // .ldb
+        ASSERT_TRUE(db.Get("a", &v).ok());  // .ldb
         EXPECT_EQ(v, "1");
-        ASSERT_TRUE(db.Get("tail", &v).ok());       // 新 WAL 回放
+        ASSERT_TRUE(db.Get("tail", &v).ok());  // 新 WAL 回放
         EXPECT_EQ(v, "tv");
         EXPECT_TRUE(db.Get("x", &v).IsNotFound());  // 新层墓碑遮蔽旧表值
     }
@@ -300,7 +308,7 @@ TEST(DBTest, OrphanTmpCleanedOnReopen) {
         ASSERT_TRUE(db.Init().ok());
         int logs, tables, tmps;
         CountFiles(dir, &logs, &tables, &tmps);
-        EXPECT_EQ(tmps, 0);                  // 孤儿被清理
+        EXPECT_EQ(tmps, 0);  // 孤儿被清理
         EXPECT_GE(tables, 1);
         std::string v;
         ASSERT_TRUE(db.Get("a", &v).ok());  // 数据未丢
@@ -329,7 +337,7 @@ TEST(DBTest, OneHundredKEntriesSurviveReopen) {
         ASSERT_TRUE(db.Init().ok());
         int logs, tables, tmps;
         CountFiles(dir, &logs, &tables, &tmps);
-        EXPECT_GE(tables, 2);    // 10MB+ 数据应跨多张表
+        EXPECT_GE(tables, 2);  // 10MB+ 数据应跨多张表
         EXPECT_EQ(tmps, 0);
 
         // 确定性伪随机采样 2000 个 key

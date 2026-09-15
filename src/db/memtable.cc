@@ -2,11 +2,10 @@
 
 #include <cstring>
 
-namespace mini_leveldb
-{
+namespace mini_leveldb {
 
-void MemTable::Add(SequenceNumber seq, ValueType type,
-                   const Slice& key, const Slice& value) {
+void MemTable::Add(SequenceNumber seq, ValueType type, const Slice& key,
+                   const Slice& value) {
     // 记录布局：[user_key][8B tag][value]，实体存 arena，跳表只挂视图
     const size_t klen = key.size() + 8;
     char* buf = arena_.AllocateAligned(klen + value.size());
@@ -28,18 +27,16 @@ LookupState MemTable::Get(const Slice& user_key, std::string* value) const {
     if (!it.Valid()) return LookupState::kNotFound;
     const Key& entry = it.key();
     if (ExtractUserKey(entry.ikey) != user_key) {
-        return LookupState::kNotFound;   // 落到了下一个 key
+        return LookupState::kNotFound;  // 落到了下一个 key
     }
 
     if (static_cast<ValueType>(ExtractTag(entry.ikey) & 0xff) == kTypeValue) {
         value->assign(entry.value.data(), entry.value.size());
         return LookupState::kValue;
     }
-    return LookupState::kDeleted;   // 墓碑必须上报，多层 Get 靠它终止下探
+    return LookupState::kDeleted;  // 墓碑必须上报，多层 Get 靠它终止下探
 }
 
-size_t MemTable::ApproximateMemoryUsage() const {
-    return arena_.MemoryUsage();
-}
+size_t MemTable::ApproximateMemoryUsage() const { return arena_.MemoryUsage(); }
 
-}   // namespace mini_leveldb
+}  // namespace mini_leveldb

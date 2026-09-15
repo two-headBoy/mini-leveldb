@@ -1,11 +1,11 @@
+#include "db/filename.h"
+
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <cstdio>
 #include <string>
-#include <unistd.h>
 #include <vector>
-
-#include "db/filename.h"
 
 using namespace mini_leveldb;
 
@@ -44,8 +44,8 @@ TEST(FileNameTest, RejectInvalid) {
     EXPECT_FALSE(ParseFileName("log", &n, &t));
     EXPECT_FALSE(ParseFileName("123.txt", &n, &t));
     EXPECT_FALSE(ParseFileName("12a3.log", &n, &t));
-    EXPECT_FALSE(ParseFileName(".log", &n, &t));         // 裸后缀
-    EXPECT_FALSE(ParseFileName(".ldb.tmp", &n, &t));     // 裸后缀
+    EXPECT_FALSE(ParseFileName(".log", &n, &t));      // 裸后缀
+    EXPECT_FALSE(ParseFileName(".ldb.tmp", &n, &t));  // 裸后缀
     EXPECT_FALSE(ParseFileName("random", &n, &t));
 }
 

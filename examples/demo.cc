@@ -76,7 +76,6 @@ void ShowGet(DB* db, const std::string& key) {
 
 int main(int argc, char** argv) {
     const std::string dbname = argc >= 2 ? argv[1] : kDbDir;
-    if (dbname == kDbDir) fs::remove_all(dbname);  // 演示数据可抛弃，从零开始
 
     // ---------- 1. 基础读写删 ----------
     Banner("1. Put / Get / Delete");

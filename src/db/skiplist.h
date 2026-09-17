@@ -2,9 +2,7 @@
 
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <functional>
-#include <new>
 
 #include "util/arena.h"
 

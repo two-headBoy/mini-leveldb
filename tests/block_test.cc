@@ -1,9 +1,7 @@
 #include "table/block.h"
 
 #include <gtest/gtest.h>
-
 #include <cstdio>
-#include <string>
 
 #include "table/block_builder.h"
 
